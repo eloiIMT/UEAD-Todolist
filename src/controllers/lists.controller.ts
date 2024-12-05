@@ -3,12 +3,12 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ITodoList, ITodoItem } from "../interfaces";
 
-export async function listLists(request: FastifyRequest, reply: FastifyReply) {
+export async function listLists(_: FastifyRequest, reply: FastifyReply) {
   console.log("DB status", this.level.listsdb.status);
   const listsIter = this.level.listsdb.iterator();
 
   const result: ITodoList[] = [];
-  for await (const [key, value] of listsIter) {
+  for await (const [_, value] of listsIter) {
     result.push(JSON.parse(value));
   }
   reply.send(result);
@@ -31,6 +31,15 @@ export async function updateList(request: FastifyRequest, reply: FastifyReply) {
   await this.level.listsdb.put(id, JSON.stringify(list));
 
   reply.send(list);
+}
+
+export async function deleteList(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as {
+    id: string;
+  };
+  await this.level.listsdb.del(id);
+
+  reply.code(204).send();
 }
 
 export async function addItemToList(
@@ -76,7 +85,7 @@ export async function updateItemInList(
   const list = JSON.parse(await this.level.listsdb.get(id)) as ITodoList;
   const itemIndex = list.items?.findIndex((item) => item.id === itemId);
 
-  if (itemIndex !== undefined && itemIndex >= 0) {
+  if (itemIndex !== -1) {
     Object.assign(list.items[itemIndex], updatedItem);
     await this.level.listsdb.put(id, JSON.stringify(list));
 
