@@ -1,0 +1,13 @@
+services:
+  back:
+    build: ./back
+    ports:
+      - "3000:3000"
+  web:
+    build:
+      context: .
+      dockerfile: ./web/Dockerfile
+    ports:
+      - "3006:3006"
+    depends_on:
+      - web
