@@ -21,20 +21,10 @@
         },
         "status": {
           "type": "string",
-          "enum": [
-            "PENDING",
-            "IN-PROGRESS",
-            "DONE"
-          ]
+          "enum": ["PENDING", "IN-PROGRESS", "DONE"]
         }
       },
-      "required": [
-        "id",
-        "description",
-        "name",
-        "items",
-        "status"
-      ],
+      "required": ["id", "description", "name", "items", "status"],
       "additionalProperties": false
     },
     "ITodoItem": {
@@ -48,21 +38,13 @@
         },
         "status": {
           "type": "string",
-          "enum": [
-            "PENDING",
-            "IN-PROGRESS",
-            "DONE"
-          ]
+          "enum": ["PENDING", "IN-PROGRESS", "DONE"]
         },
         "user": {
           "type": "string"
         }
       },
-      "required": [
-        "id",
-        "description",
-        "status"
-      ],
+      "required": ["id", "description", "status"],
       "additionalProperties": false
     }
   }
