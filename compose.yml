@@ -10,4 +10,4 @@ services:
     ports:
       - "3006:3006"
     depends_on:
-      - web
+      - back
