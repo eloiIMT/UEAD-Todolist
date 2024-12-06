@@ -1,7 +1,21 @@
-import fp from "fastify-plugin";
-import swagger, { FastifySwaggerOptions } from "@fastify/swagger";
+
+// src/plugins/swagger.ts
+
+import fp from 'fastify-plugin';
+import swagger, { FastifySwaggerOptions } from '@fastify/swagger';
+import SwaggerUI from "@fastify/swagger-ui";
+
+import JsonSchemas from '../schemas/all.json'
 
 export default fp<FastifySwaggerOptions>(async (fastify) => {
+  fastify.addSchema({
+    $id: 'ITodoList',
+    ...JsonSchemas.definitions.ITodoList
+  })
+  fastify.addSchema({
+    $id: 'ITodoItem',
+    ...JsonSchemas.definitions.ITodoItem
+  })
   fastify.register(swagger, {
     swagger: {
       info: { title: "Todo API", version: "1.0.0" },
@@ -10,38 +24,6 @@ export default fp<FastifySwaggerOptions>(async (fastify) => {
       consumes: ["application/json"],
       produces: ["application/json"],
       tags: [{ name: "todo", description: "Todo related end-points" }],
-      definitions: {
-        ITodoList: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string" },
-            name: { type: "string" },
-            description: { type: "string" },
-            items: {
-              type: "array",
-              items: { $ref: "#/definitions/ITodoItem" },
-            },
-            status: {
-              type: "string",
-              enum: ["PENDING", "IN-PROGRESS", "DONE"],
-            },
-          },
-        },
-        ITodoItem: {
-          type: "object",
-          required: ["id", "description", "status"],
-          properties: {
-            id: { type: "string" },
-            description: { type: "string" },
-            status: {
-              type: "string",
-              enum: ["PENDING", "IN-PROGRESS", "DONE"],
-            },
-            assignedTo: { type: "string" },
-          },
-        },
-      },
     },
   });
 });
