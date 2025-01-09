@@ -3,6 +3,10 @@ services:
     build: ./back
     ports:
       - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/postgres"
   web:
     build:
       context: .
@@ -11,3 +15,16 @@ services:
       - "3006:3006"
     depends_on:
       - back
+  postgres:
+    image: "postgres:12"
+    ports:
+      - "5432:5432"
+    environment:
+        POSTGRES_USER: "postgres"
+        POSTGRES_PASSWORD: "postgres"
+        POSTGRES_DB: "postgres"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
