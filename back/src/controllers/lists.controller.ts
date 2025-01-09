@@ -4,58 +4,129 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { ITodoList, ITodoItem } from "../interfaces";
 
 export async function listLists(_: FastifyRequest, reply: FastifyReply) {
-  console.log("DB status", this.level.listsdb.status);
-  const listsIter = this.level.listsdb.iterator();
+  const client = await this.pg.connect();
+  try {
+    const { rows } = await client.query(
+      "SELECT id, description, name, status FROM todo_lists",
+    );
 
-  const result: ITodoList[] = [];
-  for await (const [_, value] of listsIter) {
-    result.push(JSON.parse(value));
+    const rowsWithItems = (await Promise.all(
+      rows.map(async (row) => {
+        const { rows: items } = await client.query(
+          "SELECT id, description, status, user FROM todo_items WHERE list_id = $1",
+          [row.id],
+        );
+        return {
+          ...row,
+          items,
+        };
+      }),
+    )) satisfies ITodoList[];
+
+    reply.send(rowsWithItems);
+  } finally {
+    client.release();
   }
-  reply.send(result);
 }
 
 export async function addLists(request: FastifyRequest, reply: FastifyReply) {
+  const client = await this.pg.connect();
   const list = request.body as ITodoList;
-  await this.level.listsdb.put(list.id, JSON.stringify(list));
+  try {
+    const { rows } = await client.query(
+      "INSERT INTO todo_lists (id, description, name, status) VALUES ($1, $2, $3, $4) RETURNING *",
+      [list.id, list.description, list.name, list.status],
+    );
 
-  reply.code(201).send(list);
+    // add items to the list
+    const items = list.items || [];
+    const newList = {
+      ...rows[0],
+      items,
+    } as ITodoList;
+
+    reply.code(201).send(newList);
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateList(request: FastifyRequest, reply: FastifyReply) {
+  const client = await this.pg.connect();
   const { id } = request.params as {
     id: string;
   };
   const updatedData = request.body as Partial<ITodoList>;
-  const list = JSON.parse(await this.level.listsdb.get(id)) as ITodoList;
-  Object.assign(list, updatedData);
-  await this.level.listsdb.put(id, JSON.stringify(list));
 
-  reply.send(list);
+  try {
+    const { rows } = await client.query(
+      "UPDATE todo_lists SET description = $1, name = $2, status = $3 WHERE id = $4 RETURNING *",
+      [updatedData.description, updatedData.name, updatedData.status, id],
+    );
+
+    const { rows: items } = await client.query(
+      "SELECT id, description, status, user FROM todo_items WHERE list_id = $1",
+      [id],
+    );
+
+    reply.send({
+      ...rows[0],
+      items,
+    });
+  } finally {
+    client.release();
+  }
 }
 
 export async function deleteList(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as {
     id: string;
   };
-  await this.level.listsdb.del(id);
 
-  reply.code(204).send();
+  const client = await this.pg.connect();
+  try {
+    await client.query("DELETE FROM todo_lists WHERE id = $1", [id]);
+
+    reply.code(204).send();
+  } finally {
+    client.release();
+  }
 }
 
 export async function addItemToList(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
+  const client = await this.pg.connect();
   const { id } = request.params as {
     id: string;
   };
-  const item = request.body as ITodoItem;
-  const list = JSON.parse(await this.level.listsdb.get(id)) as ITodoList;
-  list.items = list.items || [];
-  list.items.push(item);
-  await this.level.listsdb.put(id, JSON.stringify(list));
+  const { id: itemId, description, status } = request.body as ITodoItem;
+  try {
+    await client.query(
+      "INSERT INTO todo_items (id, description, status, list_id) VALUES ($1, $2, $3, $4) RETURNING *",
+      [itemId, description, status, id],
+    );
 
-  reply.code(201).send(item);
+    const { rows: list } = await client.query(
+      "SELECT id, description, name, status FROM todo_lists WHERE id = $1",
+      [id],
+    );
+
+    const { rows: items } = await client.query(
+      "SELECT id, description, status, user FROM todo_items WHERE list_id = $1",
+      [id],
+    );
+
+    const newList = {
+      ...list[0],
+      items,
+    } as ITodoList;
+
+    reply.code(201).send(newList);
+  } finally {
+    client.release();
+  }
 }
 
 export async function removeItemFromList(
@@ -66,9 +137,18 @@ export async function removeItemFromList(
     id: string;
     itemId: string;
   };
-  const list = JSON.parse(await this.level.listsdb.get(id)) as ITodoList;
-  list.items = list.items?.filter((item) => item.id !== itemId);
-  await this.level.listsdb.put(id, JSON.stringify(list));
+
+  const client = await this.pg.connect();
+  try {
+    reply.code(204).send();
+
+    await client.query(
+      "DELETE FROM todo_items WHERE id = $1 AND list_id = $2",
+      [itemId, id],
+    );
+  } finally {
+    client.release();
+  }
 
   reply.code(204).send();
 }
@@ -81,16 +161,18 @@ export async function updateItemInList(
     id: string;
     itemId: string;
   };
+
   const updatedItem = request.body as Partial<ITodoItem>;
-  const list = JSON.parse(await this.level.listsdb.get(id)) as ITodoList;
-  const itemIndex = list.items?.findIndex((item) => item.id === itemId);
 
-  if (itemIndex !== -1) {
-    Object.assign(list.items[itemIndex], updatedItem);
-    await this.level.listsdb.put(id, JSON.stringify(list));
+  const client = await this.pg.connect();
+  try {
+    const { rows } = await client.query(
+      "UPDATE todo_items SET description = $1, status = $2 WHERE id = $3 AND list_id = $4 RETURNING *",
+      [updatedItem.description, updatedItem.status, itemId, id],
+    );
 
-    reply.send(list.items[itemIndex]);
-  } else {
-    reply.code(404).send({ error: "Item not found" });
+    reply.send(rows[0]);
+  } finally {
+    client.release();
   }
 }

@@ -72,7 +72,8 @@ export const apiClient = {
   },
   addTodo: async (listId: string, todo: string) => {
     const newItem = {
-      id: listId,
+      id: Date.now().toString(),
+      list_id: listId,
       description: todo,
       status: Def1StatusEnum.Pending,
       user: undefined,

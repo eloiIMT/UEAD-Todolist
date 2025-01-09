@@ -2,7 +2,8 @@ import { join } from "path";
 import AutoLoad, { AutoloadPluginOptions } from "@fastify/autoload";
 import { FastifyPluginAsync, FastifyServerOptions } from "fastify";
 import SwaggerUI from "@fastify/swagger-ui";
-import cors from '@fastify/cors'
+import cors from "@fastify/cors";
+import fastifyPostgres from "@fastify/postgres";
 
 export interface AppOptions
   extends FastifyServerOptions,
@@ -38,8 +39,14 @@ const app: FastifyPluginAsync<AppOptions> = async (
   });
 
   await fastify.register(cors, {
-    origin: true
-  })
+    origin: true,
+  });
+
+  await fastify.register(fastifyPostgres, {
+    connectionString:
+      process.env.DATABASE_URL ||
+      "postgres://postgres:postgres@localhost:5432/postgres",
+  });
 };
 
 export default app;
