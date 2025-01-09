@@ -1,17 +1,28 @@
 import { Form, Input, Button } from 'antd';
 import { useState } from 'react';
+import { apiClient } from './api-client';
+import { ITodoList } from './api-types';
 
 interface ListFormProps {
-  onListAdded?: (listName: string) => void;
+  onListAdded?: (list: ITodoList) => void;
 }
 
 export const ListForm = ({ onListAdded }: ListFormProps) => {
   const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (values: { listName: string }) => {
-    form.resetFields();
-    if (onListAdded) {
-      onListAdded(values.listName);
+  const handleSubmit = async (values: { listName: string }) => {
+    setLoading(true);
+    try {
+      const newList = await apiClient.addList(values.listName);
+      form.resetFields();
+      if (onListAdded) {
+        onListAdded(newList);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la création de la liste', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,7 +40,7 @@ export const ListForm = ({ onListAdded }: ListFormProps) => {
       </Form.Item>
 
       <Form.Item>
-        <Button type="primary" htmlType="submit">
+        <Button type="primary" htmlType="submit" loading={loading}>
           Create List
         </Button>
       </Form.Item>
